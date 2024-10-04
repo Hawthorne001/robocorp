@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+## 2.9.3 - 2024-09-25
+
+- Update dependencies
+
+## 2.9.2 - 2024-04-08
+
+- Update package's main README.
+
 ## 2.9.1 - 2024-03-11
 
 - Fixed issue writing unicode to the output when the contents cannot be encoded with the stdout/stderr encoding.

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 
 def test_lint_action_no_docstring(data_regression):
@@ -81,6 +82,30 @@ def my_action() -> str:
     data_regression.check([x.to_lsp_diagnostic() for x in iter_lint_errors(contents)])
 
 
+def find_issues_in_actions_list(datadir: Path, contents: str) -> list:
+    import json
+
+    from devutils.fixtures import robocorp_actions_run
+
+    cwd = datadir / "cwd"
+    os.makedirs(cwd)
+    act = cwd / "act.py"
+    act.write_text(contents)
+
+    result = robocorp_actions_run(["list"], returncode="any", cwd=str(cwd))
+    try:
+        found = json.loads(result.stdout)
+    except Exception:
+        raise RuntimeError(
+            f"stdout: {result.stdout.decode('utf-8')}\nstderr: {result.stderr.decode('utf-8')}"
+        )
+
+    if isinstance(found, dict):
+        lint_result = found.get("lint_result", [])
+        return lint_result
+    return []
+
+
 def test_lint_action_integrated(datadir, data_regression):
     import json
 
@@ -103,3 +128,31 @@ def test_lint_action_integrated(datadir, data_regression):
             new_dict[k] = v
 
     data_regression.check(new_dict)
+
+
+def test_lint_action_secret(data_regression, datadir):
+    from robocorp.tasks._customization._extension_points import EPManagedParameters
+    from robocorp.tasks._customization._plugin_manager import PluginManager
+
+    from robocorp.actions._lint_action import iter_lint_errors
+    from robocorp.actions._managed_parameters import ManagedParameters
+
+    contents = """
+from robocorp.actions import Secret
+from robocorp import actions
+
+@action
+def my_action(my_password: Secret, another: actions.Secret) -> str:
+    '''
+    This is an action.
+    '''
+    return ''
+"""
+
+    pm = PluginManager()
+    pm.set_instance(EPManagedParameters, ManagedParameters({}))
+    data_regression.check(
+        [x.to_lsp_diagnostic() for x in iter_lint_errors(contents, pm=pm)]
+    )
+
+    assert not find_issues_in_actions_list(datadir, contents)

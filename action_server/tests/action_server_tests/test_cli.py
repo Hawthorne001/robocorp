@@ -30,19 +30,6 @@ def test_new(
     check_new_template(tmpdir, action_server_process, client)
 
 
-# def test_schema(str_regression, tmpdir) -> None:
-#     from action_server_tests.fixtures import robocorp_action_server_run
-#
-#     result = robocorp_action_server_run(["schema"], returncode=0)
-#     output = result.stdout
-#     str_regression.check(output)
-#
-#     out_json = Path(tmpdir / "out.json")
-#     robocorp_action_server_run(["schema", "--file", str(out_json)], returncode=0)
-#     contents = out_json.read_text()
-#     assert output.strip() == contents.strip()
-
-
 def test_help(str_regression):
     from action_server_tests.fixtures import robocorp_action_server_run
 
@@ -149,13 +136,13 @@ dependencies:
     )
 
     assert (
-        "Flag for package operation not specified."
+        "Command for package operation not specified."
         in robocorp_action_server_run(["package"], returncode=1).stderr
     )
 
     if op == "dry_run.no_backup":
         result = robocorp_action_server_run(
-            ["package", "--update", "--dry-run", "--no-backup"], returncode=0, cwd=tmp
+            ["package", "update", "--dry-run", "--no-backup"], returncode=0, cwd=tmp
         )
         assert (tmp / "robot.yaml").exists()
         assert (tmp / "conda.yaml").exists()
@@ -163,7 +150,7 @@ dependencies:
 
     elif op == "dry_run.backup":
         result = robocorp_action_server_run(
-            ["package", "--update", "--dry-run"], returncode=0, cwd=tmp
+            ["package", "update", "--dry-run"], returncode=0, cwd=tmp
         )
         assert (tmp / "robot.yaml").exists()
         assert (tmp / "conda.yaml").exists()
@@ -171,7 +158,7 @@ dependencies:
 
     elif op == "update.backup":
         result = robocorp_action_server_run(
-            ["package", "--update"], returncode=0, cwd=tmp
+            ["package", "update"], returncode=0, cwd=tmp
         )
         assert (tmp / "robot.yaml.bak").exists()
         assert (tmp / "conda.yaml.bak").exists()
@@ -179,7 +166,7 @@ dependencies:
 
     elif op == "update.no_backup":
         result = robocorp_action_server_run(
-            ["package", "--update", "--no-backup"], returncode=0, cwd=tmp
+            ["package", "update", "--no-backup"], returncode=0, cwd=tmp
         )
         assert not (tmp / "robot.yaml.bak").exists()
         assert not (tmp / "conda.yaml.bak").exists()

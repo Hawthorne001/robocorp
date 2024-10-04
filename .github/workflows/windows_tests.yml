@@ -9,6 +9,8 @@ name: Windows Tests
     - windows/**
     - .github/workflows/windows_tests.yml
     - devutils/**
+    - log_pytest/**
+    - log/**
   pull_request:
     branches:
     - master
@@ -16,6 +18,8 @@ name: Windows Tests
     - windows/**
     - .github/workflows/windows_tests.yml
     - devutils/**
+    - log_pytest/**
+    - log/**
 defaults:
   run:
     working-directory: ./windows
@@ -26,10 +30,10 @@ jobs:
       fail-fast: false
       matrix:
         name:
-        - windows-py310-devmode
+        - windows-py3.9-devmode
         include:
-        - name: windows-py310-devmode
-          python: '3.10'
+        - name: windows-py3.9-devmode
+          python: '3.9'
           os: windows-latest
     steps:
     - name: Checkout repository and submodules
@@ -78,12 +82,12 @@ jobs:
         inv docs --check
 
         '
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: log.${{ matrix.name }}.html
         path: windows/output/log.html
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: log.${{ matrix.name }}.robolog

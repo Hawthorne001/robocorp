@@ -19,6 +19,7 @@ export interface Action {
   lineno: number; // Line for the action
   input_schema: string; // The json content for the schema input
   output_schema: string; // The json content for the schema output
+  managed_params_schema?: string; // The json content for the managed parameters.
 }
 
 export enum RunStatus {
@@ -57,7 +58,7 @@ export type LoadedActionsPackages = AsyncLoaded<ActionPackage[]>;
 export type LoadedArtifacts = AsyncLoaded<Artifact>;
 
 export interface InputProperty {
-  type: OpenAPIV3_1.NonArraySchemaObjectType | 'enum';
+  type: OpenAPIV3_1.NonArraySchemaObjectType | 'enum' | 'array';
   description: string;
   title: string;
   default?: string;

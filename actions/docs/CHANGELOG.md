@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## 0.2.2 - 2024-09-23
+- Update cryptography and zipp dependencies.  
+
+## 0.2.1 - 2024-04-17
+
+- Accepts `auth-tag` when using `aes256-gcm` for encrypting the `x-action-context` contents
+  (previously it'd always be an empty string). 
+
+## 0.2.0 - 2024-04-10
+
+- `python -m robocorp.actions list` now has information on the managed parameters
+  (`managed_params_schema`, which is a dict from parameter name to parameter
+   information is given for each task).
+- Parameters in `@action` typed as `robocorp.actions.Secret` will now be considered
+  managed parameters (the client must to provide the secret information when
+  running the action).
+- `X-Action-Context` containing the secrets can be passed (with optional encryption
+  using `aes256-gcm`).
+- Update **robocorp-tasks** dependency to `3.1.1`.
+
+## 0.1.3 - 2024-04-09
+
+- Update **robocorp-tasks** dependency to `3.0.3`.
+
+## 0.1.2 - 2024-04-08
+
+- Alignment with **robocorp-tasks** `3.0.2`.
+
+## 0.1.1 - 2024-04-08
+
+- Update package's main README.
+
 ## 0.1.0 - 2024-03-15
 
 - `request: Request` is now a managed parameter when using `robocorp-actions`. Note

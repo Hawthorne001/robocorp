@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.4 - 2024-09-25
+
+- Bump zipp to 3.20.2
+
+## 1.0.3 - 2024-04-08
+
+- Stable API documentation generation impacting parameters taking functions as defaults.
+- Update package's main README.
 - Make `get_win_version` a static method of `windows.Desktop` for easier usage.
 
 ## 1.0.2 - 2024-02-01

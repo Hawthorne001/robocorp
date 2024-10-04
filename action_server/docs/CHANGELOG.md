@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+## 0.4.1 - 2024-04-17
+
+- `auth-tag` can be passed/used in the `X-Action-Context` header when encoding using `aes256-gcm` encryption.
+    - Note: requires `robocorp-actions=0.2.1`
+
+
+## 0.4.0 - 2024-04-16
+
+- Using `Ctrl+C` to stop action server should no longer show a traceback.
+- Return package name in package metadata.
+- Return package description in package metadata.
+- RCC updated to `v17.23.2`.
+- RCC `--bundled` flag now passed when called from the action server.
+- When the help is shown the action server version is shown in the description.
+- (Backward-Incompatibility) The label referencing the encryption algorithm for the context is now properly specified as `aes256-gcm`.
+- Note: New migration required with data related to required secrets (`action-server migrate` needs to be manually called).
+- Action Server Builtin UI:
+    - Fix issue where the label for some entry would not be shown in the run. [#370](https://github.com/robocorp/robocorp/issues/370)
+    - Show ` (item)` when editing an item from a list.
+    - Required secrets are now properly shown in the UI (so, it's possible to pass secrets from the Builtin UI).
+
+## 0.3.2 - 2024-04-12
+
+- Fixed issue where auto-update message could break commands which wrote to stdout (such as version or package metadata).
+
+## 0.3.1 - 2024-04-11
+
+- Fixes in the builtin UI:
+    - There's a JSON toggle so that the data can be sent as JSON.
+    - Objects can now be properly edited.
+    - Entering a float or int now works properly.
+
+## 0.3.0 - 2024-04-10
+
+- `action-server package metadata` now includes information on the secrets required
+  for each action.
+- Passing secrets now works (requires `robocorp-actions=0.2.0`)
+    - Note: the builtin UI still has no support for passing secrets.
+
+## 0.2.1 - 2024-04-04
+
+- `action-server package build` no longer includes the `.zip` being created in the 
+  `.zip` itself if it's created in the current directory.
+- `action-server package extract` uses the current dir by default as a target for
+  extraction.
+- A traceback is no longer shown if the user does `Ctrl+C` when waiting for the
+  user input on whether to override or not files in the related 
+  `action-server package` commands.
+- Fixed issue where items could be overridden in the `action-server package` commands
+  even if the user answered `n` to the prompt.
+
+## 0.2.0 - 2024-04-03
+
+- Update package's main README.
+- Improved handling of websockets when used from the builtin UI (not the `--expose` one).
+    - Fixed issue where the number of runs shown in the UI would not match the 
+      actual number of runs (i.e.: updated data was not collected on websocket 
+      reconnection).
+- Fixed issue where `"sqlite3.OperationalError: database is locked"` could be raised
+  when executing multiple actions in parallel.
+- In `action-server start --expose`, if an action run starts and the connection 
+  is broken and a new websocket connection is created to the tunnel, the results
+  of the action run are sent to the new websocket.
+- Added support for `action-server package build` to create a .zip file with the
+  package contents (excluding contents based on the `package.yaml` `packaging/exclude` 
+  session).
+- Added support for `action-server package extract` to extract the contents of the
+  package created with `action-server package build`.
+- Added support for `action-server package metadata` to extract metadata from the
+  action package (in the current directory). Currently outputs to stdout 
+  a json containing a map from `openapi.json` to its contents. 
+- Backward-incompatibility: `action-server package update` needs to be used
+  instead of `action-server package --update`.
+- Add support parsing Array type in Action Server UI action run view
+
 ## 0.1.4 - 2024-03-20
 
 - Fixed issue in action-server binary build. 

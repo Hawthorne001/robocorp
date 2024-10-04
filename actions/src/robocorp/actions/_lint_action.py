@@ -183,12 +183,18 @@ def _make_error(
             severity,
         )
     else:
+        lineno, end_lineno = getattr(node, "lineno", 0), getattr(node, "end_lineno", 0)
+        col_offset, end_col_offset = (
+            getattr(node, "col_offset", 0),
+            getattr(node, "end_col_offset", 0),
+        )
+
         return Error(
             msg,
-            (node.lineno, node.col_offset + coldelta),
+            (lineno, col_offset + coldelta),
             (
-                node.end_lineno or node.lineno,
-                (node.end_col_offset or node.col_offset) + coldelta,
+                end_lineno or lineno,
+                (end_col_offset or col_offset) + coldelta,
             ),
             severity,
         )
@@ -264,7 +270,7 @@ def _check_docstring_contents(
     if arguments.args:
         for arg in arguments.args:
             desc = param_name_to_description.pop(arg.arg, None)
-            if pm is not None and _is_managed_param(pm, arg.arg):
+            if pm is not None and _is_managed_param(pm, arg.arg, node=node):
                 continue
 
             if not desc:
@@ -285,7 +291,7 @@ def _check_docstring_contents(
 
 
 def iter_lint_errors(
-    action_contents_file: str | bytes, pm: Optional[PluginManager] = None
+    action_contents_file: Union[str, bytes], pm: Optional[PluginManager] = None
 ) -> Iterator[Error]:
     ast = ast_module.parse(action_contents_file, "<string>")
     for _stack, node in _iter_nodes(ast, recursive=False):
