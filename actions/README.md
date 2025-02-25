@@ -1,5 +1,11 @@
 # ⚡️ robocorp-actions
 
+> **⚠️ Deprecation Notice:**
+> Development of this package has moved and continues under a new PyPI package: [sema4ai-actions](https://pypi.org/project/sema4ai-actions/).
+> You can follow the development in this [GitHub repository](https://github.com/Sema4AI/actions).
+> The [robocorp-actions](https://pypi.org/project/robocorp-actions/) package will no longer receive updates, so please update your dependencies to ensure continued support and improvements.
+
+
 A Python library designed to simplify the development of Python actions _(AI or otherwise)_ to be run with the [Robocorp Action Server](../action_server/).
 
 ## Getting started
@@ -16,12 +22,11 @@ def sum_numbers(a: float, b: float) -> float:
     ...
 ```
 
-**And your function is now an ⚡️ action!**
+**And your function is now an ⚡️Action!**
 
 You can now run and debug your action by Starting Action Server with `action-server start` and accessing the UI at http://localhost:8080.
 
-> [!NOTE]
-> Action inputs and outputs support only `int`, `float`, `str`, and `bool` types.
+> Note: Action inputs and outputs support only `int`, `float`, `str` and `bool` types.
 
 ## Describe your action
 
@@ -46,8 +51,7 @@ def get_weather_forecast(city: str, days: int, scale: str = "celsius") -> str:
     ...
 ```
 
-> [!TIP]
-> Experiment with and iterate the exact documentation wording to get more predictable results when using your action with AI apps.
+> Tip: Experiment with and iterate the exact documentation wording to get more predictable results when using your action with AI apps.
 
 ---
 
@@ -68,10 +72,14 @@ To get the full benefits of your actions, the suggested way to run them is using
 python -m robocorp.actions run -- --city=Helsinki --days=3
 ```
 
-### API Reference
+## Guides
 
-Information on specific functions or classes: [robocorp.actions](https://github.com/robocorp/robocorp/blob/master/actions/docs/api/README.md)
+- [Request headers](https://github.com/robocorp/robocorp/blob/master/actions/docs/guides/00-request.md)
 
-### Changelog
+## API Reference
+
+Explore our [API](https://github.com/robocorp/robocorp/blob/master/actions/docs/api/README.md) for extensive documentation.
+
+## Changelog
 
 A list of releases and corresponding changes can be found in the [changelog](https://github.com/robocorp/robocorp/blob/master/actions/docs/CHANGELOG.md).

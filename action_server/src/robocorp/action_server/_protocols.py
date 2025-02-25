@@ -1,3 +1,4 @@
+import typing
 from enum import Enum
 from typing import (
     Any,
@@ -9,6 +10,9 @@ from typing import (
     TypedDict,
     TypeVar,
 )
+
+if typing.TYPE_CHECKING:
+    from fastapi.applications import FastAPI
 
 T = TypeVar("T")
 
@@ -66,6 +70,17 @@ class RCCActionResult(ActionResult[str]):
         self.command_line = command_line
 
 
+class IBeforeStartCallback(Protocol):
+    def __call__(self, app: "FastAPI") -> bool:
+        """
+        Args:
+            app: The (fully-configured) fast api app
+
+        Returns: True if it's ok to continue starting up or
+            False if the startup process should be stopped.
+        """
+
+
 def check_implements(x: T) -> T:
     """
     Helper to check if a class implements some protocol.
@@ -88,10 +103,15 @@ class ArgumentsNamespace(Protocol):
     This is the argparse.Namespace with the arguments provided by the user.
     """
 
-    command: Literal["download-rcc", "package", "import", "start", "version"]
+    command: Literal[
+        "download-rcc", "package", "import", "start", "version", "new", "migrate"
+    ]
     verbose: bool
-    db_file: str
-    datadir: str
+
+
+class ArgumentsNamespaceNew(ArgumentsNamespace):
+    command: Literal["new"]
+    name: str
 
 
 class ArgumentsNamespaceDownloadRcc(ArgumentsNamespace):
@@ -101,12 +121,47 @@ class ArgumentsNamespaceDownloadRcc(ArgumentsNamespace):
 
 class ArgumentsNamespacePackage(ArgumentsNamespace):
     command: Literal["package"]
-    update: bool
+    package_command: Literal["update"] | Literal["build"]
+
+
+class ArgumentsNamespacePackageUpdate(ArgumentsNamespace):
+    command: Literal["package"]
+    package_command: Literal["update"]
     dry_run: bool
     no_backup: bool
 
 
-class ArgumentsNamespaceBaseImportOrStart(ArgumentsNamespace):
+class ArgumentsNamespacePackageBuild(ArgumentsNamespace):
+    command: Literal["package"]
+    package_command: Literal["build"]
+    output_dir: str
+    datadir: str
+    override: bool
+
+
+class ArgumentsNamespacePackageExtract(ArgumentsNamespace):
+    command: Literal["package"]
+    package_command: Literal["extract"]
+    output_dir: str
+    override: bool
+
+
+class ArgumentsNamespacePackageMetadata(ArgumentsNamespace):
+    command: Literal["package"]
+    package_command: Literal["metadata"]
+
+
+class ArgumentsNamespaceMigrateImportOrStart(ArgumentsNamespace):
+    command: Literal["migrate", "import", "start"]
+    datadir: str
+    db_file: str
+
+
+class ArgumentsNamespaceMigrate(ArgumentsNamespaceMigrateImportOrStart):
+    command: Literal["migrate"]
+
+
+class ArgumentsNamespaceBaseImportOrStart(ArgumentsNamespaceMigrateImportOrStart):
     command: Literal["import", "start"]
     dir: Sequence[str]
     skip_lint: bool

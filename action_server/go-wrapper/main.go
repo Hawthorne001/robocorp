@@ -3,15 +3,94 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 //go:embed all:assets/*
 var content embed.FS
+
+// Constants
+const ACTION_SERVER_LATEST_BASE_URL = "https://downloads.robocorp.com/action-server/releases/latest/"
+const VERSION_LATEST_URL = ACTION_SERVER_LATEST_BASE_URL + "version.txt"
+
+type ColorType struct{}
+
+func (ct *ColorType) Bold(str string) string {
+	return fmt.Sprintf("\033[1m%s\033[0m", str)
+}
+func (ct *ColorType) Yellow(str string) string {
+	return fmt.Sprintf("\033[33m%s\033[0m", str)
+}
+func (ct *ColorType) Green(str string) string {
+	return fmt.Sprintf("\033[32m%s\033[0m", str)
+}
+
+func getLatestVersion() (string, error) {
+	// Get the data from the URL
+	versionResponse, err := http.Get(VERSION_LATEST_URL)
+	if err != nil {
+		return "", err
+	}
+	defer versionResponse.Body.Close()
+
+	// Read the body content
+	versionInBytes, err := io.ReadAll(versionResponse.Body)
+	if err != nil {
+		return "", err
+	}
+	// Convert the byte slice to string
+	versionAsString := string(versionInBytes)
+	return strings.TrimSpace(versionAsString), nil
+}
+
+func checkAvailableUpdate(version string) {
+	// Get the latest version
+	latestVersion, err := getLatestVersion()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Verifying latest version failed:%s\n", err)
+		return
+	}
+	// Compare the given version with the latest one
+	compareResult := semver.Compare(strings.TrimSpace("v"+version), strings.TrimSpace("v"+latestVersion))
+
+	// If the current version is a previous version than the latest print the update suggestions
+	if compareResult == -1 {
+		// Construct the needed URL path to get to the downloadable object
+		var actionOS, actionExe string
+		switch runtime.GOOS {
+		case "windows":
+			actionOS = "windows64"
+			actionExe = "action-server.exe"
+		case "linux":
+			actionOS = "linux64"
+			actionExe = "action-server"
+		case "darwin":
+			actionOS = "macos64"
+			actionExe = "action-server"
+		default:
+			fmt.Fprintf(os.Stderr, "Unsupported operating system\n")
+			os.Exit(1)
+		}
+		colorT := &ColorType{}
+		urlPath, _ := url.JoinPath(ACTION_SERVER_LATEST_BASE_URL, actionOS, actionExe)
+		fmt.Fprintf(os.Stderr, "\n ⏫ A new version of action-server is now available: %s → %s \n", colorT.Yellow(version), colorT.Green(latestVersion))
+		if runtime.GOOS == "darwin" {
+			fmt.Fprintf(os.Stderr, "    To update, download from: %s \n", colorT.Bold(urlPath))
+			fmt.Fprintf(os.Stderr, "    Or run: %s \n\n", colorT.Bold("brew update && brew install robocorp/tools/action-server"))
+		} else {
+			fmt.Fprintf(os.Stderr, "    To update, download from: %s \n\n", colorT.Bold(urlPath))
+		}
+	}
+}
 
 func copyFiles(src, dest string) error {
 	files, err := content.ReadDir(src)
@@ -57,10 +136,13 @@ func main() {
 	// Read the version
 	versionData, err := content.ReadFile("assets/version.txt")
 	if err != nil {
-		fmt.Println("Error reading version.txt:", err)
+		fmt.Fprintf(os.Stderr, "Error reading version.txt: %s\n", err)
 		os.Exit(1)
 	}
 	version := strings.TrimSpace(string(versionData))
+
+	// Check if there is an update available
+	checkAvailableUpdate(version)
 
 	// Determine the appropriate path based on the operating system
 	switch runtime.GOOS {
@@ -71,13 +153,13 @@ func main() {
 	case "linux", "darwin":
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Println("Error getting user home directory:", err)
+			fmt.Fprintf(os.Stderr, "Error getting user home directory: %s\n", err)
 			os.Exit(1)
 		}
 		actionServerPath = fmt.Sprintf("%s/.robocorp/action-server/%s", homeDir, version)
 		executablePath = filepath.Join(actionServerPath, "action-server")
 	default:
-		fmt.Println("Unsupported operating system")
+		fmt.Fprintf(os.Stderr, "Unsupported operating system\n")
 		os.Exit(1)
 	}
 
@@ -86,13 +168,13 @@ func main() {
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(actionServerPath, 0755)
 		if err != nil {
-			fmt.Println("Error creating directory:", err)
+			fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
 			os.Exit(1)
 		}
 
 		err = copyFiles("assets", actionServerPath)
 		if err != nil {
-			fmt.Println("Error copying files:", err)
+			fmt.Fprintf(os.Stderr, "Error copying files: %s\n", err)
 			os.Exit(1)
 		}
 	}
@@ -104,7 +186,7 @@ func main() {
 
 	err = cmd.Run()
 	if err != nil {
-		fmt.Println("Error executing action-server:", err)
+		fmt.Fprintf(os.Stderr, "Error executing action-server: %s\n", err)
 		os.Exit(1)
 	}
 }

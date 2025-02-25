@@ -83,6 +83,7 @@ class ActionServerProcess:
         reuse_processes: bool = False,
         lint: bool = False,
         additional_args: Optional[list[str]] = None,
+        env: Optional[Dict[str, str]] = None,
     ) -> None:
         from robocorp.action_server._robo_utils.process import Process
         from robocorp.action_server._settings import is_frozen
@@ -124,10 +125,12 @@ class ActionServerProcess:
         if additional_args:
             new_args = new_args + additional_args
 
-        env = {}
+        use_env: Dict[str, str] = {}
         if add_shutdown_api:
-            env["RC_ADD_SHUTDOWN_API"] = "1"
-        process = self._process = Process(new_args, cwd=cwd, env=env)
+            use_env["RC_ADD_SHUTDOWN_API"] = "1"
+        if env:
+            use_env.update(env)
+        process = self._process = Process(new_args, cwd=cwd, env=use_env)
 
         compiled = re.compile(r"Local Action Server: http://([\w.-]+):(\d+)")
         future: Future[Tuple[str, str]] = Future()
@@ -214,10 +217,17 @@ class ActionServerClient:
         import requests
 
         result = requests.get(
-            self.build_full_url(url), params=(params or {}), timeout=5
+            self.build_full_url(url),
+            params=(params or {}),
+            timeout=self._get_default_timeout(),
         )
         result.raise_for_status()
         return result.text
+
+    def _get_default_timeout(self) -> Optional[int]:
+        if is_debugger_active():
+            return None
+        return 10
 
     def get_openapi_json(self, params: Optional[dict] = None):
         return self.get_str("openapi.json", params=params)
@@ -245,7 +255,7 @@ class ActionServerClient:
             json=data,
             cookies=cookies,
             params=params,
-            timeout=5,
+            timeout=self._get_default_timeout(),
         )
         result.raise_for_status()
         return result.text
@@ -253,7 +263,11 @@ class ActionServerClient:
     def post_error(self, url, status_code, data=None):
         import requests
 
-        result = requests.post(self.build_full_url(url), json=data or {}, timeout=5)
+        result = requests.post(
+            self.build_full_url(url),
+            json=data or {},
+            timeout=self._get_default_timeout(),
+        )
         if result.status_code != status_code:
             raise AssertionError(
                 (
@@ -267,37 +281,52 @@ class ActionServerClient:
     def get_error(self, url, status_code):
         import requests
 
-        result = requests.get(self.build_full_url(url), timeout=5)
+        result = requests.get(
+            self.build_full_url(url), timeout=self._get_default_timeout()
+        )
         assert result.status_code == status_code
 
 
 def robocorp_action_server_run(
     cmdline,
-    returncode: Union[Literal["error"], int],
+    returncode: Optional[Union[Literal["error"], int]],
     cwd=None,
     additional_env: Optional[Dict[str, str]] = None,
     timeout=None,
+    capture_output=True,
 ) -> CompletedProcess:
     from robocorp.action_server._settings import is_frozen
 
     if is_frozen():
         # i.e.: The entry point is our own executable.
         return run_command_line(
-            [sys.executable] + cmdline, returncode, cwd, additional_env, timeout
+            [sys.executable] + cmdline,
+            returncode,
+            cwd,
+            additional_env,
+            timeout,
+            capture_output=capture_output,
         )
     else:
         return run_python_module(
-            "robocorp.action_server", cmdline, returncode, cwd, additional_env, timeout
+            "robocorp.action_server",
+            cmdline,
+            returncode,
+            cwd,
+            additional_env,
+            timeout,
+            capture_output=capture_output,
         )
 
 
 def run_python_module(
     python_module: str,
     cmdline,
-    returncode: Union[Literal["error"], int],
+    returncode: Optional[Union[Literal["error"], int]],
     cwd=None,
     additional_env: Optional[Dict[str, str]] = None,
     timeout=None,
+    capture_output=True,
 ) -> CompletedProcess:
     return run_command_line(
         [sys.executable, "-m", python_module] + cmdline,
@@ -305,15 +334,17 @@ def run_python_module(
         cwd=cwd,
         additional_env=additional_env,
         timeout=timeout,
+        capture_output=capture_output,
     )
 
 
 def run_command_line(
     cmdline,
-    returncode: Union[Literal["error"], int],
+    returncode: Optional[Union[Literal["error"], int]],
     cwd=None,
     additional_env: Optional[Dict[str, str]] = None,
     timeout=None,
+    capture_output=True,
 ) -> CompletedProcess:
     cp = os.environ.copy()
     cp["PYTHONPATH"] = os.pathsep.join([x for x in sys.path if x])
@@ -322,13 +353,16 @@ def run_command_line(
         cp.update(additional_env)
     result = subprocess.run(
         cmdline,
-        capture_output=True,
+        capture_output=capture_output,
         text=True,
         env=cp,
         cwd=cwd,
         timeout=timeout,
         encoding="utf-8",
     )
+
+    if returncode is None:
+        return result
 
     if returncode == "error" and result.returncode:
         return result
@@ -392,7 +426,7 @@ def check_new_template(
             db_file="server.db",
             cwd=str(tmpdir / "my_project"),
             actions_sync=True,
-            timeout=300,
+            timeout=60 * 10,
         )
 
         if verbose:

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "robocorp-browser"
-version = "2.3.1"
+version = "2.3.4"
 description = "Robocorp browser automation library"
 authors = [
 	"Fabio Z. <fabio@robocorp.com>",
@@ -28,3 +28,6 @@ profile = "black"
 
 [tool.mypy]
 mypy_path = "src:tests"
+
+[tool.lazydocs]
+validate = "true"

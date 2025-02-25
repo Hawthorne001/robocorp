@@ -1,6 +1,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,7 +11,7 @@ from datetime import datetime
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from invoke import task
 
@@ -148,11 +149,15 @@ def build_common_tasks(
     parallel_tests: bool = True,
     source_directories: Tuple[str, ...] = ("src", "tests"),
 ):
-    """
+    """Builds the common tasks in every task.py file of the inheriting packages.
+
     Args:
-        root: The path to the package root (i.e.: /tasks in the repo)
-        package_name: The name of the python package (i.e.: robocorp.tasks)
-        tag_prefix: Prefix for tags / PyPI package name
+        root: The path to the package root. (i.e.: ./tasks in the repo)
+        package_name: The name of the python package. (i.e.: "robocorp.tasks")
+        tag_prefix: Optional prefix for tags / PyPI package name.
+        ruff_format_arguments: Pass extra options to the ruff formatting commands.
+        parallel_tests: Runs tests in parallels. (enabled by default)
+        source_directories: Default Python source directories.
     """
     if tag_prefix is None:
         # The tag for releases should be `robocorp-tasks-{version}`
@@ -162,6 +167,8 @@ def build_common_tasks(
 
     DIST = root / "dist"
     CONDA_ENV_NAME = package_name.replace(".", "-").replace("_", "-")
+    TARGETS = " ".join(source_directories)
+    RUFF_ARGS = f"--config {ROOT / 'ruff.toml'} {ruff_format_arguments}".strip()
 
     def run(ctx, *cmd, **options):
         options.setdefault("pty", sys.platform != "win32")
@@ -193,19 +200,22 @@ def build_common_tasks(
     def install(
         ctx, local: Optional[str] = None, update: bool = False, verbose: bool = False
     ):
-        """
-        Installs or updates dependencies.
+        """Optionally updates then also installs dependencies.
+
+        This also supports specifying local dependencies installed in development mode
+        through the `local` argument. Enable `verbose` to increase logging. Passing
+        `-u` / `--update` will update the dependencies in the *.lock file first, then
+        it will continue with the installation as usual.
 
         Args:
             local: A comma-separated list of local projects to install in develop mode.
-            update: Whether to update the dependencies.
+            update: Whether to update the dependencies first.
             verbose: Whether to run in verbose mode.
         """
         _make_conda_env_if_needed()
 
         if update:
             poetry(ctx, "update", verbose=verbose)
-            return
 
         projects = (
             [package.replace("robocorp-", "") for package in local.split(",")]
@@ -235,7 +245,7 @@ def build_common_tasks(
 
     @contextmanager
     def mark_as_develop_mode(
-        projects: Optional[list[str]] = None, all_packages: bool = False
+        projects: Optional[List[str]] = None, all_packages: bool = False
     ):
         root_pyproject = root / "pyproject.toml"
         assert root_pyproject.exists(), f"Expected {root_pyproject} to exist."
@@ -268,15 +278,54 @@ def build_common_tasks(
             for roundtrip in roundtrips:
                 roundtrip.restore()
 
+    def _collect_docs_to_lint() -> List[Union[str, Path]]:
+        # Collects Markdown documents paths to be passed to the Markdown lint tool.
+        # FIXME(cmin764; 3 Apr 2024): Improve this into a dynamic path list by keeping
+        #  only the *.md files not containing the linting-ignore HTML comment tag as
+        #  observed with the generated API ones.
+        docs_path = Path("docs")
+        static_paths = [
+            "README.md",
+            docs_path / "guides",
+            docs_path / "CHANGELOG.md",
+        ]
+        # Required since the Markdown lint tool doesn't currently have a way to
+        #  configure directories/files to exclude.
+        # See GH Issue: https://github.com/markdownlint/markdownlint/issues/368
+        return static_paths
+
     @task
     def lint(ctx, strict: bool = False):
-        """Run static analysis and formatting checks"""
-        targets = " ".join(source_directories)
-        poetry(ctx, f"run ruff {targets}")
-        poetry(ctx, f"run ruff format --check {targets} {ruff_format_arguments}")
-        poetry(ctx, f"run isort --check {targets}")
+        """Run static analysis and formatting checks.
+
+        Currently, it runs the following in this order:
+            - Ruff basic checks, then the formatting ones
+            - isort for sorting the imports
+            - Optionally Pylint if enabled through the `strict` switch
+            - Markdown lint if available in the system
+
+        Args:
+            strict: Whether to enable the more strict Pylint as well.
+        """
+        poetry(ctx, f"run ruff {TARGETS}")
+        poetry(ctx, f"run ruff format --check {RUFF_ARGS} {TARGETS}")
+        poetry(ctx, f"run isort --check {TARGETS}")
         if strict:
             poetry(ctx, f"run pylint --rcfile {ROOT / '.pylintrc'} src")
+
+        # NOTE(cmin764): Markdown lint can be installed as a gem with Ruby.
+        #  Instructions on GitHub page: https://github.com/markdownlint/markdownlint
+        resolved_path = shutil.which("mdl")
+        if resolved_path:
+            print("Running Markdown lint over the hand-written docs...")
+            docs_paths = " ".join(map(str, _collect_docs_to_lint()))
+            cmd = f"{resolved_path} --config {ROOT / '.mdlrc'} {docs_paths}"
+            subprocess.check_call(shlex.split(cmd))
+        else:
+            print(
+                "Markdown lint wasn't found in PATH, consider installing and adding it"
+                " in order to be able to lint package's *.md documents."
+            )
 
     @task
     def typecheck(ctx, strict: bool = False):
@@ -297,10 +346,9 @@ def build_common_tasks(
     @task
     def pretty(ctx):
         """Auto-format code and sort imports"""
-        targets = " ".join(source_directories)
-        poetry(ctx, f"run ruff --fix {targets}")
-        poetry(ctx, f"run ruff format {targets} {ruff_format_arguments}")
-        poetry(ctx, f"run isort {targets}")
+        poetry(ctx, f"run ruff --fix {TARGETS}")
+        poetry(ctx, f"run ruff format {RUFF_ARGS} {TARGETS}")
+        poetry(ctx, f"run isort {TARGETS}")
 
     @task
     def test(ctx, test: Optional[str] = None):
@@ -367,8 +415,12 @@ def build_common_tasks(
         poetry(ctx, "publish")
 
     @task
-    def docs(ctx, check: bool = False):
+    def docs(ctx, check: bool = False, validate: bool = False):
         """Build API documentation"""
+        if validate:
+            poetry(ctx, "run lazydocs", "--validate", package_name)
+            return
+
         output_path = root / "docs" / "api"
         if not output_path.exists():
             print("Docs output path does not exist. Skipping...")
@@ -380,7 +432,6 @@ def build_common_tasks(
         poetry(
             ctx,
             "run lazydocs",
-            "--validate",
             "--no-watermark",
             "--remove-package-prefix",
             f"--src-base-url {REPOSITORY_URL}",

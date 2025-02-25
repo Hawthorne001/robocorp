@@ -7,15 +7,46 @@ from pathlib import Path
 
 from termcolor import colored
 
+from robocorp.action_server._robo_utils.callback import Callback, OnExitContextManager
 from robocorp.action_server.vendored_deps.action_package_handling.cli_errors import (
     ActionPackageError,
 )
 from robocorp.action_server.vendored_deps.termcolors import bold_red, bold_yellow
 
 if typing.TYPE_CHECKING:
+    from robocorp.actions._protocols import ActionsListActionTypedDict
+
     from robocorp.action_server._models import ActionPackage
 
 log = logging.getLogger(__name__)
+
+
+class IHookOnActionsListCallback(typing.Protocol):
+    def __call__(
+        self,
+        action_package: "ActionPackage",
+        actions_list_result: list["ActionsListActionTypedDict"],
+    ):
+        ...
+
+
+class IHookOnActionsList(typing.Protocol):
+    def register(
+        self,
+        callback: IHookOnActionsListCallback,
+    ) -> OnExitContextManager:
+        ...
+
+    def __call__(
+        self,
+        action_package: "ActionPackage",
+        actions_list_result: list["ActionsListActionTypedDict"],
+    ):
+        ...
+
+
+# Called as: hook_on_actions_list(action_package, actions_list_result)
+hook_on_actions_list: IHookOnActionsList = Callback(raise_exceptions=True)
 
 
 def _log_deprecated_conda():
@@ -29,7 +60,7 @@ def _log_deprecated_conda():
         bold_red(
             "Deprecated: The file for defining the environment is now `package.yaml`.\n"
             "It's not a one to one mapping for action-server.yaml, but\n"
-            f"`{cmd} package --update` can be used to make most of the needed changes.\n"
+            f"`{cmd} package update` can be used to make most of the needed changes.\n"
             "See: https://github.com/robocorp/robocorp/blob/master/action_server/docs/guides/01-package-yaml.md for more details."
         )
     )
@@ -231,6 +262,18 @@ Note: no virtual environment will be used for the imported actions, they'll be r
                 f"Please update the `robocorp-actions` version in your python environment (python: {sys.executable})\n"
             )
 
+    min_version_for_encryption_with_auth_tag = (0, 2, 1)
+    if v < min_version_for_encryption_with_auth_tag:
+        v_as_str = ".".join(str(x) for x in v)
+        log.critical(
+            f"Warning: the `robocorp-actions` version is: {v_as_str}.\n"
+            f"To receive encrypted secrets, robocorp-actions 0.2.1 or newer is required.\n"
+            f"Please update the version in: {original_conda_yaml}\n"
+            "(proceeding with initalization but actions receiving encrypted secrets will\n"
+            "not work properly -- on future versions of the action server, support for \n"
+            "this version of robocorp-actions will be removed)."
+        )
+
     _add_actions_to_db(
         datadir,
         env,
@@ -345,14 +388,24 @@ def _add_actions_to_db(
         log.critical(bold_yellow(f"{decoded_stderr}\n"))
 
     try:
-        loaded = json.loads(stdout)
+        actions_list_result = json.loads(stdout)
     except json.JSONDecodeError:
         raise RuntimeError(
             f"It was not possible to load as json the contents >>{stdout!r}<<"
         )
     else:
+        if not isinstance(actions_list_result, list):
+            raise RuntimeError(
+                f"Expected robocorp.actions list to provide a list. Found: >>{stdout!r}<<"
+            )
+
+        hook_on_actions_list(
+            action_package,
+            typing.cast(list["ActionsListActionTypedDict"], actions_list_result),
+        )
+
         actions = []
-        for action_fields in loaded:
+        for action_fields in actions_list_result:
             action_name = action_fields["name"]
             if whitelist:
                 if not accept_action(whitelist, action_package.name, action_name):
@@ -366,6 +419,10 @@ def _add_actions_to_db(
                 filepath = filepath.relative_to(import_path)
             except ValueError:
                 pass
+
+            managed_params_str: str = ""
+            if action_fields.get("managed_params_schema"):
+                managed_params_str = json.dumps(action_fields["managed_params_schema"])
 
             actions.append(
                 Action(
@@ -381,6 +438,7 @@ def _add_actions_to_db(
                     is_consequential=(action_fields.get("options") or {}).get(
                         "is_consequential", None
                     ),
+                    managed_params_schema=managed_params_str,
                 )
             )
 

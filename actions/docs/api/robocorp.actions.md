@@ -2,17 +2,11 @@
 
 # module `robocorp.actions`
 
-**Source:** [`__init__.py:0`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L0)
+# Functions
 
 ______________________________________________________________________
 
-## function `action`
-
-**Source:** [`__init__.py:24`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L24)
-
-```python
-action(*args, **kwargs)
-```
+## `action`
 
 Decorator for actions (entry points) which can be executed by `robocorp.actions`.
 
@@ -37,15 +31,15 @@ python -m robocorp.actions run actions.py -a enter_user
 - <b>`func`</b>:  A function which is a action to `robocorp.actions`.
 - <b>`is_consequential`</b>:  Whether the action is consequential or not. This will add `x-openai-isConsequential: true` to the action metadata and shown in OpenApi spec.
 
-______________________________________________________________________
-
-## function `action_cache`
-
-**Source:** [`__init__.py:85`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L85)
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L25)
 
 ```python
-action_cache(func)
+action(*args, **kwargs)
 ```
+
+______________________________________________________________________
+
+## `action_cache`
 
 Provides decorator which caches return and clears it automatically when the current action has been run.
 
@@ -57,39 +51,39 @@ The function may be either a generator with a single yield (so, the first yielde
 
 - <b>`func`</b>:  wrapped function.
 
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L86)
+
+```python
+action_cache(func)
+```
+
 ______________________________________________________________________
 
-## function `get_current_action`
+## `get_current_action`
 
-**Source:** [`__init__.py:116`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L116)
+Provides the action which is being currently run or None if not currently running an action.
+
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L117)
 
 ```python
 get_current_action() → Optional[IAction]
 ```
 
-Provides the action which is being currently run or None if not currently running an action.
-
 ______________________________________________________________________
 
-## function `get_output_dir`
+## `get_output_dir`
 
-**Source:** [`__init__.py:106`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L106)
+Provide the output directory being used for the run or None if there's no output dir configured.
+
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L107)
 
 ```python
 get_output_dir() → Optional[Path]
 ```
 
-Provide the output directory being used for the run or None if there's no output dir configured.
-
 ______________________________________________________________________
 
-## function `session_cache`
-
-**Source:** [`__init__.py:64`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L64)
-
-```python
-session_cache(func)
-```
+## `session_cache`
 
 Provides decorator which caches return and clears automatically when all actions have been run.
 
@@ -101,18 +95,15 @@ The function may be either a generator with a single yield (so, the first yielde
 
 - <b>`func`</b>:  wrapped function.
 
-______________________________________________________________________
-
-## function `setup`
-
-**Source:** [`_fixtures.py:24`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_fixtures.py#L24)
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/__init__.py#L65)
 
 ```python
-setup(
-    *args,
-    **kwargs
-) → Union[Callable[[IAction], Any], Callable[[Callable[[IAction], Any]], Callable[[IAction], Any]], Callable[[Callable[[Sequence[IAction]], Any]], Callable[[Sequence[IAction]], Any]]]
+session_cache(func)
 ```
+
+______________________________________________________________________
+
+## `setup`
 
 Run code before any actions start, or before each separate action.
 
@@ -164,18 +155,18 @@ def my_long_action():
 
 **Note:** If fixtures are defined in another file, they need to be imported in the main actions file to be taken into use
 
-______________________________________________________________________
-
-## function `teardown`
-
-**Source:** [`_fixtures.py:114`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_fixtures.py#L114)
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_fixtures.py#L24)
 
 ```python
-teardown(
+setup(
     *args,
     **kwargs
 ) → Union[Callable[[IAction], Any], Callable[[Callable[[IAction], Any]], Callable[[IAction], Any]], Callable[[Callable[[Sequence[IAction]], Any]], Callable[[Sequence[IAction]], Any]]]
 ```
+
+______________________________________________________________________
+
+## `teardown`
 
 Run code after actions have been run, or after each separate action.
 
@@ -209,47 +200,108 @@ By default, runs teardowns in `action` scope.
 
 **Note:** If fixtures are defined in another file, they need to be imported in the main actions file to be taken into use
 
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_fixtures.py#L114)
+
+```python
+teardown(
+    *args,
+    **kwargs
+) → Union[Callable[[IAction], Any], Callable[[Callable[[IAction], Any]], Callable[[IAction], Any]], Callable[[Callable[[Sequence[IAction]], Any]], Callable[[Sequence[IAction]], Any]]]
+```
+
 ______________________________________________________________________
 
-## class `IAction`
+# Class `IAction`
 
-**Source:** [`_protocols.py:8`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_protocols.py#L8)
+## Properties
 
-#### property `failed`
+- `failed`
 
 Returns true if the task failed. (in which case usually exc_info is not None).
 
-#### property `input_schema`
+- `input_schema`
 
-#### property `lineno`
+The input schema from the function signature.
 
-#### property `name`
+**Example:**
 
-#### property `output_schema`
+```
+{
+    "properties": {
+        "value": {
+            "type": "integer",
+            "description": "Some value.",
+            "title": "Value",
+            "default": 0
+        }
+    },
+    "type": "object"
+}
+```
+
+- `lineno`
+
+The line where the task is declared.
+
+- `managed_params_schema`
+
+The schema for the managed parameters.
+
+**Example:**
+
+```
+{
+    "my_password": {
+        "type": "Secret"
+    },
+    "request": {
+        "type": "Request"
+    }
+}
+```
+
+- `name`
+
+The name of the task.
+
+- `output_schema`
+
+The output schema based on the function signature.
+
+**Example:**
+
+```
+{
+    "type": "string",
+    "description": ""
+}
+```
 
 ______________________________________________________________________
 
-## class `Request`
-
-**Source:** [`_request.py:74`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_request.py#L74)
+# Class `Request`
 
 Contains the information exposed in a request (such as headers and cookies).
 
 May be extended in the future to provide more information.
 
-#### property `cookies`
+## Properties
+
+- `cookies`
 
 Provides the cookies received in the request.
 
-#### property `headers`
+- `headers`
 
 Provides the headers received in the request (excluding `cookies` which are available in `cookies`).
 
+## Methods
+
 ______________________________________________________________________
 
-### classmethod `model_validate`
+### `model_validate`
 
-**Source:** [`_request.py:100`](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_request.py#L100)
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_request.py#L100)
 
 ```python
 model_validate(dct: dict) → Request
@@ -257,9 +309,75 @@ model_validate(dct: dict) → Request
 
 ______________________________________________________________________
 
-## enum `Status`
+# Class `Secret`
 
-**Source:** [`_protocols.py:43`](https://github.com/robocorp/robocorp/tree/master/tasks/src/robocorp/tasks/_protocols.py#L43)
+This class should be used to receive secrets.
+
+The way to use it is by declaring a variable with the 'Secret' type in the @action.
+
+**Example:**
+
+```
+from robocorp.actions import action, Secret
+
+@action
+def my_action(password: Secret):
+    login(password.value)
+```
+
+Note: this class is abstract and is not meant to be instanced by clients. An instance can be created from one of the factory methods (`model_validate`or `from_action_context`).
+
+## Properties
+
+- `value`
+
+## Methods
+
+______________________________________________________________________
+
+### `from_action_context`
+
+Creates a secret given the action context (which may be encrypted in memory until the actual secret value is requested).
+
+**Args:**
+
+- <b>`action_context`</b>:  The action context which has the secret.
+
+- <b>`path`</b>:  The path inside of the action context for the secret datarequested (Example: 'secrets/my_secret_name').
+
+Return: A Secret instance collected from the passed action context.
+
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_secret.py#L45)
+
+```python
+from_action_context(action_context: 'ActionContext', path: str) → Secret
+```
+
+______________________________________________________________________
+
+### `model_validate`
+
+Creates a secret given a string (expected when the user is passing the arguments using a json input).
+
+**Args:**
+
+- <b>`value`</b>:  The raw-text value to be used in the secret.
+
+Return: A Secret instance with the given value.
+
+Note: the model_validate method is used for compatibility with the pydantic API.
+
+[**Link to source**](https://github.com/robocorp/robocorp/tree/master/actions/src/robocorp/actions/_secret.py#L29)
+
+```python
+model_validate(value: str) → Secret
+```
+
+# Enums
+
+______________________________________________________________________
+
+## `Status`
 
 Task state
 
