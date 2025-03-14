@@ -3,7 +3,7 @@
 Module used to interact with native widgets on the Windows OS through UI Automation.
 
 This library can be made available by pinning
-![`robocorp-windows`](https://img.shields.io/pypi/v/robocorp-windows?label=robocorp-windows)
+[![`robocorp-windows`](https://img.shields.io/pypi/v/robocorp-windows?label=robocorp-windows)](https://pypi.org/project/robocorp-windows/)
 in your dependencies' configuration.
 """
 
@@ -29,7 +29,7 @@ from .protocols import Locator
 if typing.TYPE_CHECKING:
     from PIL.Image import Image
 
-__version__ = "1.0.2"
+__version__ = "1.0.4"
 version_info = [int(x) for x in __version__.split(".")]
 
 

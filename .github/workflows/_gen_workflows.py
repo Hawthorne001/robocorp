@@ -1,41 +1,59 @@
 from pathlib import Path
+from typing import Iterator
 
 import yaml
 
 CURDIR = Path(__file__).absolute().parent
 
 
+def collect_deps_pyprojects(root_pyproject: Path, found=None) -> Iterator[Path]:
+    if found is None:
+        found = set()
+
+    import tomlkit  # allows roundtrip of toml files
+
+    contents: dict = tomlkit.loads(root_pyproject.read_bytes().decode("utf-8"))
+
+    dependencies = list(contents["tool"]["poetry"]["dependencies"])
+    try:
+        dependencies.extend(contents["tool"]["poetry"]["group"]["dev"]["dependencies"])
+    except Exception:
+        pass  # Ignore if it's not there.
+    for key in dependencies:
+        if key.startswith("robocorp-"):
+            dep_name = key[len("robocorp-") :].replace("-", "_")
+            dep_pyproject = root_pyproject.parent.parent / dep_name / "pyproject.toml"
+            assert dep_pyproject.exists(), f"Expected {dep_pyproject} to exist."
+            if dep_pyproject not in found:
+                found.add(dep_pyproject)
+                yield dep_pyproject
+                yield from collect_deps_pyprojects(dep_pyproject, found)
+
+
+def get_python_version(pyproject):
+    import tomlkit
+
+    contents: dict = tomlkit.loads(pyproject.read_bytes().decode("utf-8"))
+    dependencies = contents["tool"]["poetry"]["dependencies"]
+    for key, value in dependencies.items():
+        if key == "python":
+            version = value.strip("^")
+            assert "." in version
+            assert tuple(int(x) for x in version.split(".")) > (
+                3,
+                7,
+            ), f"Bad version: {version}. pyproject: {pyproject}"
+            return version
+    raise RuntimeError(f"Unable to get python version in: {pyproject}")
+
+
 class BaseTests:
     require_node = False
     require_log_built = False
     require_build_frontend = False
+    validate_docstrings = False
     before_run_custom_additional_steps = ()
     after_run_custom_additional_steps = ()
-
-    matrix = {
-        "name": [
-            "ubuntu-py310-devmode",
-            "windows-py310-devmode",
-            "macos-py310-devmode",
-        ],
-        "include": [
-            {
-                "name": "ubuntu-py310-devmode",
-                "python": "3.10",
-                "os": "ubuntu-latest",
-            },
-            {
-                "name": "windows-py310-devmode",
-                "python": "3.10",
-                "os": "windows-latest",
-            },
-            {
-                "name": "macos-py310-devmode",
-                "os": "macos-latest",
-                "python": "3.10",
-            },
-        ],
-    }
 
     run_tests = {
         "name": "Test",
@@ -46,6 +64,35 @@ class BaseTests:
         },
         "run": "inv test",
     }
+
+    @property
+    def matrix(self):
+        pyversion = self.minimum_python_version
+        matrix = {
+            "name": [
+                f"ubuntu-py{pyversion}-devmode",
+                f"windows-py{pyversion}-devmode",
+                f"macos-py{pyversion}-devmode",
+            ],
+            "include": [
+                {
+                    "name": f"ubuntu-py{pyversion}-devmode",
+                    "python": pyversion,
+                    "os": "ubuntu-latest",
+                },
+                {
+                    "name": f"windows-py{pyversion}-devmode",
+                    "python": pyversion,
+                    "os": "windows-latest",
+                },
+                {
+                    "name": f"macos-py{pyversion}-devmode",
+                    "os": "macos-13",
+                    "python": pyversion,
+                },
+            ],
+        }
+        return matrix
 
     def __init__(self):
         project_dir = CURDIR.parent.parent / self.project_name
@@ -60,6 +107,17 @@ class BaseTests:
         ]
         if self.require_log_built:
             paths.append("log/**")
+
+        pyproject_toml_file = project_dir / "pyproject.toml"
+        self.pyproject_toml_file = pyproject_toml_file
+        self.minimum_python_version = get_python_version(pyproject_toml_file)
+
+        dep_pyprojects = list(collect_deps_pyprojects(pyproject_toml_file))
+        for dep_pyproject in dep_pyprojects:
+            dep_name = dep_pyproject.parent.name
+            add_dep = f"{dep_name}/**"
+            if add_dep not in paths:
+                paths.append(add_dep)
 
         self.on_part = {
             "on": {
@@ -203,6 +261,14 @@ inv docs --check
 """,
         }
 
+        run_docstrings_validation = {
+            "name": "`inv docs --validate`",
+            "if": "always()",
+            "run": """
+inv docs --validate
+""",
+        }
+
         steps = [
             checkout_repo,
             install_poetry,
@@ -223,6 +289,10 @@ inv docs --check
         steps.extend(self.before_run_custom_additional_steps)
 
         steps.extend([self.run_tests, run_lint, run_typecheck, run_docs])
+
+        if self.validate_docstrings:
+            steps.append(run_docstrings_validation)
+
         steps.extend(self.after_run_custom_additional_steps)
         return steps
 
@@ -260,6 +330,7 @@ class BrowserTests(BaseTests):
     project_name = "browser"
     require_node = True
     require_log_built = True
+    validate_docstrings = True
 
 
 class ExcelTests(BaseTests):
@@ -303,30 +374,34 @@ class LogTests(BaseTests):
     require_node = True
     require_log_built = True
 
-    matrix = {
-        "name": [
-            "ubuntu-py310-devmode-outviewintegrationtests",
-            "windows-py310-devmode",
-            "macos-py310-devmode",
-        ],
-        "include": [
-            {
-                "name": "ubuntu-py310-devmode-outviewintegrationtests",
-                "python": "3.10",
-                "os": "ubuntu-latest",
-            },
-            {
-                "name": "windows-py310-devmode",
-                "python": "3.10",
-                "os": "windows-latest",
-            },
-            {
-                "name": "macos-py310-devmode",
-                "os": "macos-latest",
-                "python": "3.10",
-            },
-        ],
-    }
+    @property
+    def matrix(self):
+        pyversion = self.minimum_python_version
+        matrix = {
+            "name": [
+                f"ubuntu-py{pyversion}-devmode-outviewintegrationtests",
+                f"windows-py{pyversion}-devmode",
+                f"macos-py{pyversion}-devmode",
+            ],
+            "include": [
+                {
+                    "name": f"ubuntu-py{pyversion}-devmode-outviewintegrationtests",
+                    "python": pyversion,
+                    "os": "ubuntu-latest",
+                },
+                {
+                    "name": f"windows-py{pyversion}-devmode",
+                    "python": pyversion,
+                    "os": "windows-latest",
+                },
+                {
+                    "name": f"macos-py{pyversion}-devmode",
+                    "os": "macos-13",
+                    "python": pyversion,
+                },
+            ],
+        }
+        return matrix
 
     before_run_custom_additional_steps = [
         {"name": "Install prettier", "run": "npm install -g prettier@2.4.1\n"},
@@ -375,18 +450,22 @@ class WindowsTests(BaseTests):
     target = "windows_tests.yml"
     project_name = "windows"
 
-    matrix = {
-        "name": [
-            "windows-py310-devmode",
-        ],
-        "include": [
-            {
-                "name": "windows-py310-devmode",
-                "python": "3.10",
-                "os": "windows-latest",
-            },
-        ],
-    }
+    @property
+    def matrix(self):
+        pyversion = self.minimum_python_version
+        matrix = {
+            "name": [
+                f"windows-py{pyversion}-devmode",
+            ],
+            "include": [
+                {
+                    "name": f"windows-py{pyversion}-devmode",
+                    "python": pyversion,
+                    "os": "windows-latest",
+                },
+            ],
+        }
+        return matrix
 
     before_run_custom_additional_steps = [
         {
@@ -397,7 +476,7 @@ class WindowsTests(BaseTests):
 
     after_run_custom_additional_steps = [
         {
-            "uses": "actions/upload-artifact@v1",
+            "uses": "actions/upload-artifact@v4",
             "if": "always()",
             "with": {
                 "name": "log.${{ matrix.name }}.html",
@@ -405,7 +484,7 @@ class WindowsTests(BaseTests):
             },
         },
         {
-            "uses": "actions/upload-artifact@v1",
+            "uses": "actions/upload-artifact@v4",
             "if": "always()",
             "with": {
                 "name": "log.${{ matrix.name }}.robolog",

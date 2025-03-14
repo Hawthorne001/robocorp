@@ -35,7 +35,7 @@ def rcc_loc(tmpdir_factory):
 
         # tests_rcc_dir = tmpdir_factory.mktemp("rcc_dir")
 
-        location = os.path.join(str(tests_rcc_dir), f"rcc_{RCC_VERSION}")
+        location = os.path.join(str(tests_rcc_dir), f"rcc-{RCC_VERSION}")
         if sys.platform == "win32":
             location += ".exe"
         _download_rcc(location, force=False)
@@ -88,7 +88,7 @@ def robocorp_home(tmpdir_factory) -> str:
     return str(dirname)
 
 
-RCC_VERSION = "v17.13.0"
+RCC_VERSION = "v17.23.2"
 
 
 def _download_rcc(location: str, force: bool = False) -> None:
@@ -279,7 +279,7 @@ def robocorp_tasks_run(
 
 def robocorp_actions_run(
     cmdline,
-    returncode: Union[Literal["error"], int],
+    returncode: Union[Literal["error"], Literal["any"], int],
     cwd=None,
     additional_env: Optional[Dict[str, str]] = None,
     timeout=None,
@@ -291,7 +291,7 @@ def robocorp_actions_run(
 
 def python_run(
     cmdline,
-    returncode: Union[Literal["error"], int],
+    returncode: Union[Literal["error"], Literal["any"], int],
     cwd=None,
     additional_env: Optional[Dict[str, str]] = None,
     timeout=None,
@@ -302,6 +302,9 @@ def python_run(
         cp.update(additional_env)
     args = [sys.executable] + cmdline
     result = subprocess.run(args, capture_output=True, env=cp, cwd=cwd, timeout=timeout)
+
+    if returncode == "any":
+        return result
 
     if returncode == "error" and result.returncode:
         return result
